@@ -6,18 +6,22 @@ PostgreSQL + Drizzle + Zod validation.
 
 ```
 src/
-  db/schema.ts                 blogs table
-  blogs/
+  database/
+    models/blog.model.ts          blogs table (Drizzle)
+    schema.ts                     barrel + schema export
+    database.module.ts
+    migrations/
+  enums/blog-status.enum.ts
+  helpers/db-errors.ts
+  modules/blogs/
     blogs.module.ts
-    controllers/
-      blogs-admin.controller.ts   /admin/blogs
-      blogs-public.controller.ts  /blogs
-    services/
-      blogs.service.ts
-      blogs-scheduler.service.ts  cron every minute
-    repositories/blogs.repository.ts
-    schemas/blog.schemas.ts       Zod
-    enums/blog-status.enum.ts
+    blogs-admin.controller.ts     /admin/blogs
+    blogs-public.controller.ts    /blogs
+    blogs.service.ts
+    blogs-scheduler.service.ts    cron every minute
+    blogs.repository.ts
+    blogs.dto.ts                  Zod
+    blogs.types.ts
 ```
 
 ## Endpoints
