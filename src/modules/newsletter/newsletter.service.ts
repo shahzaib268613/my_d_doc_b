@@ -16,6 +16,7 @@ import type {
   SendBulkInput,
   SendSingleInput,
 } from './newsletter.dto.js'
+import { NotificationsService } from '../notifications/notifications.service.js'
 import { MailService } from './mail.service.js'
 import { NewsletterRepository } from './newsletter.repository.js'
 import type {
@@ -24,7 +25,7 @@ import type {
   Paginated,
   SubscriberListItem,
 } from './newsletter.types.js'
-import type { NewsletterEmailLog, NewsletterSubscriber } from '../../database/schema.js'
+import type { NewsletterSubscriber } from '../../database/schema.js'
 import {
   createUnsubscribeToken,
   verifyUnsubscribeToken,
@@ -55,6 +56,7 @@ export class NewsletterService {
     private readonly repo: NewsletterRepository,
     private readonly mail: MailService,
     private readonly config: ConfigService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private getUnsubscribeSecret() {
@@ -89,6 +91,17 @@ export class NewsletterService {
   You are receiving this email because you subscribed to My Diabetes Doc updates.
   <a href="${url}" style="color:#0f766e">Unsubscribe</a>
 </p>`
+  }
+
+  /** Strip auto-appended unsubscribe footer so admin logs show only composed content. */
+  private stripEmailFooter(html: string | null): string | null {
+    if (!html) return html
+    return html
+      .replace(
+        /<hr[^>]*>\s*<p[^>]*>[\s\S]*?You are receiving this email because you subscribed to My Diabetes Doc updates\.[\s\S]*?<\/p>\s*$/i,
+        '',
+      )
+      .trim()
   }
 
   async listActive(
@@ -126,21 +139,32 @@ export class NewsletterService {
     const existing = await this.repo.findByEmail(email)
     if (existing) {
       if (existing.status === 'unsubscribed') {
-        return this.repo.updateSubscriber(existing.id, {
+        const restored = await this.repo.updateSubscriber(existing.id, {
           status: 'active',
           name: input.name ?? existing.name,
           source: 'homepage',
         })
+        if (!restored) throw new NotFoundException('Subscriber not found')
+        await this.notifications.notifySubscriberJoined({
+          email: restored.email,
+          name: restored.name,
+        })
+        return restored
       }
       throw new ConflictException('This email is already subscribed')
     }
     try {
-      return await this.repo.createSubscriber({
+      const created = await this.repo.createSubscriber({
         email,
         name: input.name ?? null,
         source: 'homepage',
         status: 'active',
       })
+      await this.notifications.notifySubscriberJoined({
+        email: created.email,
+        name: created.name,
+      })
+      return created
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new ConflictException('This email is already subscribed')
@@ -215,6 +239,7 @@ export class NewsletterService {
 
     const batch = await this.repo.createBatch({
       subject: input.subject,
+      html: input.html,
       total: 1,
       sent: 0,
       failed: 0,
@@ -256,6 +281,7 @@ export class NewsletterService {
 
     const batch = await this.repo.createBatch({
       subject: input.subject,
+      html: input.html,
       total: recipients.length,
       sent: 0,
       failed: 0,
@@ -280,10 +306,17 @@ export class NewsletterService {
     }
   }
 
-  async listLogs(query: QueryLogsInput): Promise<Paginated<NewsletterEmailLog>> {
+  async listLogs(query: QueryLogsInput) {
     const { items, total } = await this.repo.findLogsPage(query)
     return {
-      items,
+      items: items.map((item) => ({
+        ...item,
+        message: this.stripEmailFooter(item.message),
+        createdAt:
+          item.createdAt instanceof Date
+            ? item.createdAt.toISOString()
+            : item.createdAt,
+      })),
       total,
       page: query.page,
       limit: query.limit,
@@ -325,22 +358,21 @@ export class NewsletterService {
     subject: string,
     html: string,
   ) {
-    const personalized = this.withFooter(
-      personalize(html, subscriber.name),
-      subscriber.id,
-    )
+    const body = personalize(html, subscriber.name)
+    const toSend = this.withFooter(body, subscriber.id)
 
     try {
       await this.mail.sendMail({
         to: subscriber.email,
         subject,
-        html: personalized,
+        html: toSend,
       })
       await this.repo.createEmailLog({
         batchId,
         subscriberId: subscriber.id,
         recipient: subscriber.email,
         subject,
+        message: body,
         status: 'sent',
         error: null,
       })
@@ -352,6 +384,7 @@ export class NewsletterService {
         subscriberId: subscriber.id,
         recipient: subscriber.email,
         subject,
+        message: body,
         status: 'failed',
         error: message,
       })
