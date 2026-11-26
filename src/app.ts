@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule'
 import { DatabaseModule } from './database/database.module.js'
 import { BlogsModule } from './modules/blogs/blogs.module.js'
 import { HealthModule } from './modules/health/health.module.js'
+import { NewsletterModule } from './modules/newsletter/newsletter.module.js'
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule()
 
@@ -20,6 +21,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule()
     ScheduleModule.forRoot(),
     HealthModule,
     BlogsModule,
+    NewsletterModule,
   ],
 })
 export class AppModule {}
+
