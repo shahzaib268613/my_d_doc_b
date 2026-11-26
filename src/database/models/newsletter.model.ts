@@ -60,6 +60,8 @@ export const newsletterSubscribers = pgTable(
 export const newsletterBatches = pgTable('newsletter_batches', {
   id: uuid('id').defaultRandom().primaryKey(),
   subject: text('subject').notNull(),
+  /** Original HTML body for this send batch (used when log.message is empty). */
+  html: text('html'),
   total: integer('total').notNull().default(0),
   sent: integer('sent').notNull().default(0),
   failed: integer('failed').notNull().default(0),
@@ -85,6 +87,8 @@ export const newsletterEmailLogs = pgTable(
     }),
     recipient: text('recipient').notNull(),
     subject: text('subject').notNull(),
+    /** HTML body that was sent (for sent-log preview). */
+    message: text('message'),
     status: emailLogStatusEnum('status').notNull().default('pending'),
     error: text('error'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
@@ -94,6 +98,7 @@ export const newsletterEmailLogs = pgTable(
   (table) => [
     index('newsletter_email_logs_batch_id_idx').on(table.batchId),
     index('newsletter_email_logs_created_at_idx').on(table.createdAt),
+    index('newsletter_email_logs_recipient_idx').on(table.recipient),
   ],
 )
 

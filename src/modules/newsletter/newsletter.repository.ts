@@ -194,20 +194,95 @@ export class NewsletterRepository {
     return row
   }
 
+  /**
+   * One row per recipient (latest send), with total send count for that email.
+   */
   async findLogsPage(input: {
     page: number
     limit: number
-  }): Promise<{ items: NewsletterEmailLog[]; total: number }> {
+  }): Promise<{
+    items: Array<NewsletterEmailLog & { sendCount: number }>
+    total: number
+  }> {
     const offset = (input.page - 1) * input.limit
-    const [items, totalRow] = await Promise.all([
-      this.db
-        .select()
-        .from(newsletterEmailLogs)
-        .orderBy(desc(newsletterEmailLogs.createdAt))
-        .limit(input.limit)
-        .offset(offset),
-      this.db.select({ value: count() }).from(newsletterEmailLogs),
-    ])
-    return { items, total: Number(totalRow[0]?.value ?? 0) }
+
+    const grouped = await this.db.execute(sql`
+      WITH latest AS (
+        SELECT DISTINCT ON (lower(recipient))
+          id,
+          batch_id AS "batchId",
+          subscriber_id AS "subscriberId",
+          recipient,
+          subject,
+          message,
+          status,
+          error,
+          created_at AS "createdAt"
+        FROM newsletter_email_logs
+        ORDER BY lower(recipient), created_at DESC
+      ),
+      counts AS (
+        SELECT lower(recipient) AS email_key, count(*)::int AS send_count
+        FROM newsletter_email_logs
+        GROUP BY lower(recipient)
+      )
+      SELECT
+        latest.id,
+        latest."batchId",
+        latest."subscriberId",
+        latest.recipient,
+        latest.subject,
+        coalesce(latest.message, batches.html) AS message,
+        latest.status,
+        latest.error,
+        latest."createdAt",
+        counts.send_count AS "sendCount"
+      FROM latest
+      INNER JOIN counts ON counts.email_key = lower(latest.recipient)
+      LEFT JOIN newsletter_batches AS batches ON batches.id = latest."batchId"
+      ORDER BY latest."createdAt" DESC
+      LIMIT ${input.limit}
+      OFFSET ${offset}
+    `)
+
+    const totalRow = await this.db.execute(sql`
+      SELECT count(*)::int AS value
+      FROM (
+        SELECT DISTINCT lower(recipient)
+        FROM newsletter_email_logs
+      ) AS recipients
+    `)
+
+    const groupedRows = rawRows(grouped)
+    const totalRows = rawRows(totalRow)
+
+    const items = groupedRows.map((row) => ({
+      id: String(row.id),
+      batchId: (row.batchId as string | null) ?? null,
+      subscriberId: (row.subscriberId as string | null) ?? null,
+      recipient: String(row.recipient),
+      subject: String(row.subject),
+      message: (row.message as string | null) ?? null,
+      status: row.status as NewsletterEmailLog['status'],
+      error: (row.error as string | null) ?? null,
+      createdAt:
+        row.createdAt instanceof Date
+          ? row.createdAt
+          : new Date(String(row.createdAt)),
+      sendCount: Number(row.sendCount ?? 1),
+    }))
+
+    const total = Number(totalRows[0]?.value ?? 0)
+
+    return { items, total }
   }
+}
+
+function rawRows(
+  result: { rows: Record<string, unknown>[] } | Array<{ rows: Record<string, unknown>[] }>,
+): Array<Record<string, unknown>> {
+  if (Array.isArray(result)) {
+    return result.flatMap((part) => part.rows ?? [])
+  }
+  return result.rows ?? []
 }

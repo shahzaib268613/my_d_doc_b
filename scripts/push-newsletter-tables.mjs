@@ -45,6 +45,7 @@ CREATE INDEX IF NOT EXISTS newsletter_subscribers_email_idx
 CREATE TABLE IF NOT EXISTS newsletter_batches (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   subject text NOT NULL,
+  html text,
   total integer NOT NULL DEFAULT 0,
   sent integer NOT NULL DEFAULT 0,
   failed integer NOT NULL DEFAULT 0,
@@ -59,6 +60,7 @@ CREATE TABLE IF NOT EXISTS newsletter_email_logs (
   subscriber_id uuid REFERENCES newsletter_subscribers(id) ON DELETE SET NULL,
   recipient text NOT NULL,
   subject text NOT NULL,
+  message text,
   status email_log_status NOT NULL DEFAULT 'pending',
   error text,
   created_at timestamptz NOT NULL DEFAULT now()
@@ -67,7 +69,17 @@ CREATE INDEX IF NOT EXISTS newsletter_email_logs_batch_id_idx
   ON newsletter_email_logs (batch_id);
 CREATE INDEX IF NOT EXISTS newsletter_email_logs_created_at_idx
   ON newsletter_email_logs (created_at);
+CREATE INDEX IF NOT EXISTS newsletter_email_logs_recipient_idx
+  ON newsletter_email_logs (recipient);
 `)
+
+// Separate statements so existing tables always get new columns.
+await client.query(
+  'ALTER TABLE newsletter_batches ADD COLUMN IF NOT EXISTS html text',
+)
+await client.query(
+  'ALTER TABLE newsletter_email_logs ADD COLUMN IF NOT EXISTS message text',
+)
 
 console.log('newsletter tables ready')
 await client.end()
