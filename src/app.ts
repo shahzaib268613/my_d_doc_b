@@ -7,6 +7,8 @@ import { BlogsModule } from './modules/blogs/blogs.module.js'
 import { HealthModule } from './modules/health/health.module.js'
 import { NewsletterModule } from './modules/newsletter/newsletter.module.js'
 import { NotificationsModule } from './modules/notifications/notifications.module.js'
+import { InquiriesModule } from './modules/inquiries/inquiries.module.js'
+import { ProfileModule } from './modules/profile/profile.module.js'
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule()
 
@@ -24,6 +26,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule()
     BlogsModule,
     NewsletterModule,
     NotificationsModule,
+    ProfileModule,
+    InquiriesModule,
   ],
 })
 export class AppModule {}

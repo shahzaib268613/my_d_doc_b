@@ -1,3 +1,4 @@
+import { adminProfiles } from './models/admin-profile.model.js'
 import { blogs } from './models/blog.model.js'
 import { adminNotifications } from './models/notification.model.js'
 import {
@@ -6,6 +7,7 @@ import {
   newsletterSubscribers,
 } from './models/newsletter.model.js'
 
+export * from './models/admin-profile.model.js'
 export * from './models/blog.model.js'
 export * from './models/newsletter.model.js'
 export * from './models/notification.model.js'
@@ -16,4 +18,5 @@ export const schema = {
   newsletterBatches,
   newsletterEmailLogs,
   adminNotifications,
+  adminProfiles,
 }

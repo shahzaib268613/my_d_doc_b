@@ -1,6 +1,19 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import nodemailer, { type Transporter } from 'nodemailer'
+import { renderEmailTemplate } from '../../mail/email-template.js'
+
+export type SendMailInput = {
+  to: string
+  subject: string
+  /** Inner HTML content; wrapped in the shared brand template unless `raw` is true. */
+  html: string
+  preheader?: string
+  introHtml?: string
+  footerHtml?: string
+  /** Skip the shared template (send HTML as-is). */
+  raw?: boolean
+}
 
 @Injectable()
 export class MailService {
@@ -44,18 +57,28 @@ export class MailService {
     )
   }
 
-  async sendMail(input: {
-    to: string
-    subject: string
-    html: string
-  }): Promise<void> {
+  private buildHtml(input: SendMailInput) {
+    if (input.raw) return input.html
+
+    return renderEmailTemplate({
+      title: input.subject,
+      preheader: input.preheader ?? input.subject,
+      introHtml: input.introHtml,
+      bodyHtml: input.html,
+      footerHtml: input.footerHtml,
+    })
+  }
+
+  async sendMail(input: SendMailInput): Promise<void> {
     const transporter = this.getTransporter()
+    const html = this.buildHtml(input)
+
     try {
       await transporter.sendMail({
         from: this.getFromAddress(),
         to: input.to,
         subject: input.subject,
-        html: input.html,
+        html,
       })
     } catch (error) {
       this.logger.error(`Failed to send mail to ${input.to}`, error)
