@@ -13,7 +13,7 @@ const DEFAULT_PROFILE = {
   fullName: 'Dr. Jonas Leibowitz',
   email: 'hello@mydiabetesdoc.com',
   phone: '914-650-2806',
-  username: 'admin',
+  contactEmail: 'contact@mydiabetesdoc.com',
   role: 'Admin',
 } as const
 
@@ -26,7 +26,7 @@ export class ProfileService {
       fullName: row.fullName,
       email: row.email,
       phone: row.phone,
-      username: row.username,
+      contactEmail: row.contactEmail,
       role: row.role,
       updatedAt:
         row.updatedAt instanceof Date
@@ -65,18 +65,19 @@ export class ProfileService {
       if (error instanceof InternalServerErrorException) throw error
       if (isUniqueViolation(error)) {
         throw new ConflictException(
-          'Email or username is already in use. Choose a different value.',
+          'Email or contact email is already in use. Choose a different value.',
         )
       }
       throw error
     }
   }
 
+  /** Public contact uses contactEmail for inquiry routing. */
   async getPublicContact() {
     const profile = await this.getProfile()
     return {
       fullName: profile.fullName,
-      email: profile.email,
+      email: profile.contactEmail,
       phone: profile.phone,
     }
   }

@@ -12,7 +12,7 @@ export const adminProfiles = pgTable(
     fullName: text('full_name').notNull(),
     email: text('email').notNull(),
     phone: text('phone').notNull(),
-    username: text('username').notNull(),
+    contactEmail: text('contact_email').notNull(),
     role: text('role').notNull().default('Admin'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
@@ -25,7 +25,7 @@ export const adminProfiles = pgTable(
   (table) => [
     uniqueIndex('admin_profiles_slot_uidx').on(table.slot),
     uniqueIndex('admin_profiles_email_uidx').on(table.email),
-    uniqueIndex('admin_profiles_username_uidx').on(table.username),
+    uniqueIndex('admin_profiles_contact_email_uidx').on(table.contactEmail),
   ],
 )
 

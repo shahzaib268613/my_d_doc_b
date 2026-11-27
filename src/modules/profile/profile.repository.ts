@@ -29,7 +29,7 @@ export class ProfileRepository {
   }
 
   async updateDefault(
-    values: Pick<AdminProfile, 'fullName' | 'email' | 'phone' | 'username'>,
+    values: Pick<AdminProfile, 'fullName' | 'email' | 'phone' | 'contactEmail'>,
   ): Promise<AdminProfile | null> {
     const [row] = await this.db
       .update(adminProfiles)
@@ -37,7 +37,7 @@ export class ProfileRepository {
         fullName: values.fullName,
         email: values.email,
         phone: values.phone,
-        username: values.username,
+        contactEmail: values.contactEmail,
       })
       .where(eq(adminProfiles.slot, ADMIN_PROFILE_SLOT))
       .returning()
