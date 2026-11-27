@@ -83,17 +83,13 @@ export class NewsletterService {
     return `${base}/unsubscribe?token=${encodeURIComponent(token)}`
   }
 
-  private withFooter(html: string, subscriberId: string) {
+  private buildUnsubscribeFooter(subscriberId: string) {
     const url = this.buildUnsubscribeUrl(subscriberId)
-    return `${html}
-<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0" />
-<p style="font-size:12px;color:#6b7280;line-height:1.5">
-  You are receiving this email because you subscribed to My Diabetes Doc updates.
-  <a href="${url}" style="color:#0f766e">Unsubscribe</a>
-</p>`
+    return `You are receiving this email because you subscribed to My Diabetes Doc updates.
+  <a href="${url}" style="color:#0f766e;text-decoration:underline;">Unsubscribe</a>`
   }
 
-  /** Strip auto-appended unsubscribe footer so admin logs show only composed content. */
+  /** Strip legacy auto-appended unsubscribe footer from older log rows. */
   private stripEmailFooter(html: string | null): string | null {
     if (!html) return html
     return html
@@ -359,13 +355,14 @@ export class NewsletterService {
     html: string,
   ) {
     const body = personalize(html, subscriber.name)
-    const toSend = this.withFooter(body, subscriber.id)
 
     try {
       await this.mail.sendMail({
         to: subscriber.email,
         subject,
-        html: toSend,
+        preheader: subject,
+        html: body,
+        footerHtml: this.buildUnsubscribeFooter(subscriber.id),
       })
       await this.repo.createEmailLog({
         batchId,
